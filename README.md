@@ -1,1 +1,1 @@
-# CNN_Mobile
+# NNMOBILE-NET
