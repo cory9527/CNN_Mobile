@@ -279,7 +279,7 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    model = ReXNetV3(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
+    model = ReXNetV2(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
     model.load_state_dict(torch.load('rexnet_3.0.pth'),strict=False)
 
 
