@@ -16,6 +16,8 @@ from timm.data.mixup import Mixup
 from timm.models import create_model
 from timm.loss import LabelSmoothingCrossEntropy,SoftTargetCrossEntropy
 from timm.utils import ModelEma
+
+from model.rexnetv3 import ReXNetV3
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
 
@@ -277,7 +279,7 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    model = ReXNetV1(width_mult=3.0,classes=args.nb_classes,dropout_path=args.drop_path)
+    model = ReXNetV3(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
     model.load_state_dict(torch.load('rexnet_3.0.pth'),strict=False)
 
 
@@ -366,6 +368,8 @@ def main(args):
     if args.model_ema and args.model_ema_eval:
         max_accuracy_ema = 0.0
 
+
+    # 开始训练
     print("Start training for %d epochs" % args.epochs)
     start_time = time.time()
     for epoch in range(args.start_epoch, args.epochs):
@@ -390,6 +394,8 @@ def main(args):
                 utils.save_model(
                     args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                     loss_scaler=loss_scaler, epoch=epoch, model_ema=model_ema)
+
+        # 进行验证逻辑, 训练中验证代码内容
         if data_loader_val is not None:
             test_stats = evaluate(data_loader_val, model, device, use_amp=args.use_amp)
             print(f"kaapa of the model on the {len(dataset_val)} test images: {test_stats['kappa']:.4f}%")
@@ -536,9 +542,22 @@ def main(args):
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     print('Training time {}'.format(total_time_str))
 
+def debug(args):
+    args.batch_size=2
+    args.input_size=224
+    args.drop_path=0.2
+    args.data_set="apots"
+    args.device="cpu"
+    args.epochs=20
+    args.disable_eval=False
+    args.opt="adamp"
+    # args.eval=True
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('retinal dataset training and evaluation script', parents=[get_args_parser()])
     args = parser.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    debug(args)
     main(args)

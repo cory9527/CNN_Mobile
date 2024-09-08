@@ -225,7 +225,7 @@ class ReXNetV2(nn.Module):
 
 if __name__ == '__main__':
     model = ReXNetV2(width_mult=1.0, classes=4)
-    out = model(torch.randn(2, 3, 224, 224))
+    out = model(torch.randn(32, 3, 28, 28))
     print(out.size())
     loss = out.sum()
     loss.backward()

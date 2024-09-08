@@ -4,9 +4,15 @@ Copyright (c) 2020-present NAVER Corp.
 MIT license
 """
 
+from math import ceil
+
 import torch
 import torch.nn as nn
-from math import ceil
+from torch import channel_shuffle
+
+from model.GanAttention import GAM
+from model.GanAttention2 import GAMAttention
+from model.GanAttention3 import GAM3
 
 # Memory-efficient Siwsh using torch.jit.script borrowed from the code in (https://twitter.com/jeremyphoward/status/1188251041835315200)
 # Currently use memory-efficient SiLU as default:
@@ -69,6 +75,26 @@ def ConvBNSiLU(out, in_channels, channels, kernel=1, stride=1, pad=0, num_group=
     out.append(SiLU(inplace=True))
 
 
+class ECA(nn.Module):
+    def __init__(self, in_channels, channels, k_size=3):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv1d(1, 1, kernel_size=k_size, padding=(k_size - 1) // 2, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        # feature descriptor on the global spatial information
+        y = self.avg_pool(x)
+
+        # Two different branches of ECA module
+        y = self.conv(y.squeeze(-1).transpose(-1, -2)).transpose(-1, -2).unsqueeze(-1)
+
+        # Multi-scale information fusion
+        y = self.sigmoid(y)
+
+        return x * y.expand_as(x)
+
+
 class SE(nn.Module):
     def __init__(self, in_channels, channels, se_ratio=12):
         super(SE, self).__init__()
@@ -86,15 +112,20 @@ class SE(nn.Module):
         y = self.fc(y)
         return x * y
 
-
 class LinearBottleneck(nn.Module):
-    def __init__(self, in_channels, channels, t, stride, use_se=True, se_ratio=12,dropout = 0.0,
+    def __init__(self, in_channels, channels, t, stride, use_channel_attn=True, channel_attn='eca',
+                 channel_attn_param=12, drop_path=0.0,
                  **kwargs):
         super(LinearBottleneck, self).__init__(**kwargs)
         self.use_shortcut = stride == 1 and in_channels <= channels
         self.in_channels = in_channels
         self.out_channels = channels
-        self.drop = nn.Dropout2d(dropout)
+
+        if drop_path > 0:
+            self.drop_path = nn.Dropout2d(drop_path)
+        else:
+            self.drop_path = nn.Identity()
+
         out = []
         if t != 1:
             dw_channels = in_channels * t
@@ -105,8 +136,15 @@ class LinearBottleneck(nn.Module):
         ConvBNAct(out, in_channels=dw_channels, channels=dw_channels, kernel=3, stride=stride, pad=1,
                   num_group=dw_channels, active=False)
 
-        if use_se:
-            out.append(SE(dw_channels, dw_channels, se_ratio))
+        if use_channel_attn:
+            if channel_attn == 'se':
+                out.append(SE(dw_channels, dw_channels, channel_attn_param))
+            elif channel_attn == 'eca':
+                out.append(ECA(dw_channels, dw_channels, channel_attn_param))
+            elif channel_attn == 'gam':
+                out.append(GAM3(dw_channels, dw_channels))
+            else:
+                raise Exception("Not implemented !")
 
         out.append(nn.ReLU6())
         ConvBNAct(out, in_channels=dw_channels, channels=channels, active=False, relu6=True)
@@ -115,31 +153,36 @@ class LinearBottleneck(nn.Module):
     def forward(self, x):
         out = self.out(x)
         if self.use_shortcut:
+            out = self.drop_path(out)
             out[:, 0:self.in_channels] += x
-        out = self.drop(out)
+
         return out
 
 
-class ReXNetV1(nn.Module):
+class ReXNetV3(nn.Module):
     def __init__(self, input_ch=16, final_ch=180, width_mult=1.0, depth_mult=1.0, classes=1000,
-                 use_se=True,
-                 se_ratio=12,
+                 use_channel_attn=True,
+                 channel_attn='gam',
+                 channel_attn_param=3,
                  dropout_ratio=0.2,
-                 drop_path = 0.25,
+                 drop_path=0.25,
                  bn_momentum=0.9):
-        super(ReXNetV1, self).__init__()
+        super(ReXNetV3, self).__init__()
 
         layers = [1, 2, 2, 3, 3, 5]
         strides = [1, 2, 2, 2, 1, 2]
-        use_ses = [False, False, True, True, True, True]
+        use_channel_attns = [False, False, True, True, True, True]
 
         layers = [ceil(element * depth_mult) for element in layers]
         strides = sum([[element] + [1] * (layers[idx] - 1)
                        for idx, element in enumerate(strides)], [])
-        if use_se:
-            use_ses = sum([[element] * layers[idx] for idx, element in enumerate(use_ses)], [])
+        if use_channel_attn:
+            use_channel_attns = sum([[element] * layers[idx] for idx, element in enumerate(use_channel_attns)], [])
         else:
-            use_ses = [False] * sum(layers[:])
+            use_channel_attns = [False] * sum(layers[:])
+
+        # print(use_channel_attns)
+
         ts = [1] * layers[0] + [6] * sum(layers[1:])
 
         self.depth = sum(layers[:]) * 3
@@ -162,35 +205,37 @@ class ReXNetV1(nn.Module):
 
         ConvBNSiLU(features, 3, int(round(stem_channel * width_mult)), kernel=3, stride=2, pad=1)
 
-        for block_idx, (in_c, c, t, s, se) in enumerate(zip(in_channels_group, channels_group, ts, strides, use_ses)):
+        for block_idx, (in_c, c, t, s, use_channel_attn) in enumerate(
+                zip(in_channels_group, channels_group, ts, strides, use_channel_attns)):
             features.append(LinearBottleneck(in_channels=in_c,
                                              channels=c,
                                              t=t,
                                              stride=s,
-                                             use_se=se, se_ratio=se_ratio, dropout = drop_path))
+                                             use_channel_attn=use_channel_attn,
+                                             channel_attn=channel_attn, channel_attn_param=channel_attn_param,
+                                             drop_path=drop_path))
 
         pen_channels = int(1280 * width_mult)
         ConvBNSiLU(features, c, pen_channels)
 
         features.append(nn.AdaptiveAvgPool2d(1))
         self.features = nn.Sequential(*features)
-        # self.output = nn.Sequential(
-        #     nn.Dropout(dropout_ratio),
-        #     nn.Conv2d(pen_channels, classes, 1, bias=True))
         self.out = nn.Sequential(
             nn.Dropout(dropout_ratio),
             nn.Conv2d(pen_channels, classes, 1, bias=True))
+
     def extract_features(self, x):
         return self.features[:-1](x)
-    
+
     def forward(self, x):
         x = self.features(x)
         x = self.out(x).flatten(1)
         return x
 
+
 if __name__ == '__main__':
-    model = ReXNetV1(width_mult=1.0, classes=5)
-    out = model(torch.randn(32, 3, 224, 224))
+    model = ReXNetV3(width_mult=1.0, classes=4)
+    out = model(torch.randn(32, 3, 28, 28))
     print(out.size())
     loss = out.sum()
     loss.backward()

@@ -79,7 +79,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                 if model_ema is not None:
                     model_ema.update(model)
 
-        torch.cuda.synchronize()
+        # torch.cuda.synchronize()
 
         if mixup_fn is None:
             class_acc = (output.max(-1)[-1] == targets).float().mean()
@@ -154,11 +154,12 @@ def get_f1score(probability, truth, threshold):
 
 @torch.no_grad()
 def evaluate(data_loader, model, device, use_amp=False):
+    # 初始化损失函数，使用交叉熵损失函数
     criterion = torch.nn.CrossEntropyLoss()
-
+    # 创建日志度量器
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
-    
+    # 初始化列表以存储真实标签和预测结果
     ground_truths_multiclass = []
     ground_truths_multilabel = []
     predictions_class = []
