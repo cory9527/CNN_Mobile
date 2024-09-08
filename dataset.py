@@ -65,9 +65,9 @@ def build_dataset(is_train, args):
         nb_classes = args.nb_classes
     elif args.data_set == 'apots':
         if is_train:
-            dataset = Apots(image_dir='dataset/APOTS/crop',label_dir='dataset/APOTS/train_1.csv',transform=transform)
+            dataset = Apots(image_dir='dataset/APOTS/crop/train_images3',label_dir='dataset/APOTS/crop/train3.csv',transform=transform)
         else:
-            dataset = Apots(image_dir='dataset/APOTS/crop',label_dir='dataset/APOTS/test_1.csv',transform=transform)
+            dataset = Apots(image_dir='dataset/APOTS/crop/test_images3',label_dir='dataset/APOTS/crop/test3.csv',transform=transform)
         nb_classes = args.nb_classes
         
     elif args.data_set == 'rsna':
