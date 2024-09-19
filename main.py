@@ -551,7 +551,7 @@ def debug(args):
     args.epochs=20
     args.disable_eval=False
     args.opt="adamp"
-    # args.eval=True
+    args.eval=True
 
 
 if __name__ == '__main__':
