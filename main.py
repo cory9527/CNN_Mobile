@@ -16,6 +16,8 @@ from timm.data.mixup import Mixup
 from timm.models import create_model
 from timm.loss import LabelSmoothingCrossEntropy,SoftTargetCrossEntropy
 from timm.utils import ModelEma
+
+from model.rexnetInit import ReXNetInit
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
 
@@ -277,7 +279,7 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    model = ReXNetV1(width_mult=3.0,classes=args.nb_classes,dropout_path=args.drop_path)
+    model = ReXNetInit(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
     model.load_state_dict(torch.load('rexnet_3.0.pth'),strict=False)
 
 
