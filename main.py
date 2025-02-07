@@ -17,6 +17,7 @@ from timm.models import create_model
 from timm.loss import LabelSmoothingCrossEntropy,SoftTargetCrossEntropy
 from timm.utils import ModelEma
 
+from inceptionModel.inception_resnet_v2 import Inception_ResNetv2
 from model.rexnetv3 import ReXNetV3
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
@@ -279,8 +280,19 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    model = ReXNetV2(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
-    model.load_state_dict(torch.load('rexnet_3.0.pth'),strict=False)
+    # model = ReXNetV2(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
+    # model.load_state_dict(torch.load('F:/wei/NN-MOBILENET/rexnet_3.0.pth'),strict=False)
+
+    model = Inception_ResNetv2(classes=5)  # 修改输出层类别数为 5
+    # 加载预训练权重
+    pretrained_weights = torch.load(
+        "F:/wei/Inceptionv4_and_Inception-ResNetv2.PyTorch/checkpoints/inceptionresnetv2.pth", weights_only=True)
+    # 手动加载权重，跳过输出层
+    model_state_dict = model.state_dict()
+    for key in model_state_dict.keys():
+        if key in pretrained_weights and model_state_dict[key].shape == pretrained_weights[key].shape:
+            model_state_dict[key] = pretrained_weights[key]
+    model.load_state_dict(model_state_dict)
 
 
     model.to(device)
