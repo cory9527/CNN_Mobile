@@ -241,3 +241,115 @@ def evaluate(data_loader, model, device, use_amp=False):
           .format(accuracy_score=metric_logger.accuracy_score, spec=metric_logger.spec, kappa=metric_logger.kappa, f1=metric_logger.f1, loss=metric_logger.loss))
     
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+@torch.no_grad()
+def evaluateMulModels(data_loader, modelList, device, use_amp=False):
+    # 初始化损失函数，使用交叉熵损失函数
+    criterion = torch.nn.CrossEntropyLoss()
+    # 创建日志度量器
+    metric_logger = utils.MetricLogger(delimiter="  ")
+    header = 'Test:'
+    # 初始化列表以存储真实标签和预测结果
+    ground_truths_multiclass = []
+    ground_truths_multilabel = []
+    predictions_class = []
+
+
+    scores = []
+    total = 0
+
+    # 将所有模型切换到评估模式
+    for model in modelList:
+        if model is None:
+            continue
+        model.eval()
+
+    for batch in metric_logger.log_every(data_loader, 10, header):
+        images = batch[0]
+        target = batch[-1]
+        labels_onehot = batch[1]
+
+        images = images.to(device, non_blocking=True)
+        target = target.to(device, non_blocking=True)
+
+        # 初始化一个列表来存储每个模型的输出
+        outputs = []
+        outputs_classes = []
+
+
+        # 遍历每个模型，获取输出
+        for model in modelList:
+            if model is None:
+                continue
+            if use_amp:
+                with torch.cuda.amp.autocast():
+                    output = model(images)
+            else:
+                output = model(images)
+            outputs.append(output)
+            tmp = utils.softmax(output.data.cpu().numpy())
+            outputs_classes.append(tmp)
+        # 将所有模型的输出组合起来并计算平均值
+        avg_output = torch.stack(outputs).mean(dim=0)
+        # 计算损失
+        loss = criterion(avg_output, target)
+
+        _, predicted_class = torch.max(avg_output.data, 1)
+        # output_class = utils.softmax()
+
+        # outputs_class = utils.softmax(avg_output.data.cpu().numpy())
+        outputs_class = np.stack(outputs_classes).mean(axis=0)
+        ground_truths_multiclass.extend(target.data.cpu().numpy())
+        ground_truths_multilabel.extend(labels_onehot.data.cpu().numpy())
+        predictions_class.extend(outputs_class)
+        total += target.size(0)
+        metric_logger.update(loss=loss.item())
+
+        # acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        # batch_size = images.shape[0]
+        # metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
+        # metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
+
+    # gather the stats from all processes
+    metric_logger.synchronize_between_processes()
+
+    """Mesure the prediction performance on valid set"""
+    gts = np.asarray(ground_truths_multiclass)
+    probs = np.asarray(predictions_class)
+    preds = np.argmax(probs, axis=1)
+    accuracy = metrics.accuracy_score(gts, preds)
+
+    gts2 = np.asarray(ground_truths_multilabel)
+    trues = np.asarray(gts2).flatten()
+    probs2 = np.asarray(probs).flatten()
+    auc_score = metrics.roc_auc_score(trues, probs2)
+
+    wKappa = metrics.cohen_kappa_score(gts, preds, weights='quadratic')
+
+    specificity = metrics.recall_score(gts, preds, average='micro')
+
+    # thresh  = np.linspace(0, 1, 50)
+    # f1score = get_f1score(preds, gts, thresh)
+
+    f1score = metrics.f1_score(gts, preds, average='micro')
+    # wF1 = metrics.f1_score(gts, preds,average='weighted')
+
+    # metric_logger.add_meter(name='auc',meter=auc_score)
+    metric_logger.update(auc=auc_score)
+    metric_logger.update(kappa=wKappa)
+    metric_logger.update(spec=specificity)
+    metric_logger.update(f1=f1score)
+    metric_logger.update(accuracy_score=accuracy)
+    # metric_logger.add_meter(name='kappa',meter=wKappa)
+    # metric_logger.add_meter(name='f1',meter=wF1)
+    # print(metric_logger.kappa)
+    # print(metric_logger.auc)
+    # print(metric_logger.f1)
+    # print(metric_logger.loss)
+    print(
+        ' Accuracy:{accuracy_score.global_avg:.4f}==============  SPEC:{spec.global_avg:.4f}===========   kappa:{kappa.global_avg:.4f} ============= F1:{f1.global_avg:.4f} ============== Loss:{loss.global_avg:.4f}'
+        .format(accuracy_score=metric_logger.accuracy_score, spec=metric_logger.spec, kappa=metric_logger.kappa,
+                f1=metric_logger.f1, loss=metric_logger.loss))
+
+    return {k: meter.global_avg for k, meter in metric_logger.meters.items()}

@@ -202,6 +202,9 @@ def get_args_parser():
     parser.add_argument('--wandb_ckpt', type=str2bool, default=False,
                         help="Save model checkpoints as W&B Artifacts.")
 
+    parser.add_argument('--stack_index', default=1, type=int,
+                        help='number of stack')
+
     return parser
 
 
@@ -563,7 +566,8 @@ def debug(args):
     args.epochs=20
     args.disable_eval=False
     args.opt="adamp"
-    # args.eval=True
+    args.eval=True
+    args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
 
 
 if __name__ == '__main__':
