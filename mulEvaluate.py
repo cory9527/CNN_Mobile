@@ -383,6 +383,7 @@ def setModel(args, model):
     utils.auto_load_model(
         args=args, model=model, model_without_ddp=model_without_ddp,
         optimizer=optimizer, loss_scaler=loss_scaler, model_ema=model_ema)
+    return model_ema.ema
 
 
 def debug(args):
@@ -404,28 +405,31 @@ if __name__ == '__main__':
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    # debug(args)
+    debug(args)
 
     model_1 = None
+    model_ema_1 = None
     args.resume = 'F:/wei/CNN_Mobile/checkpoint/checkpoint-best.pth'
-    model_1 = ReXNetV2(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
+    model_1 = ReXNetV1(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
     model_1.load_state_dict(torch.load('F:/wei/NN-MOBILENET/rexnet_3.0.pth'), strict=False)
-    setModel(args, model_1)
+    model_ema_1 = setModel(args, model_1)
 
     model_2 = None
-    args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
-    model_2 = Inception_ResNetv2(classes=5)  # 修改输出层类别数为 5
-    # 加载预训练权重
-    pretrained_weights = torch.load(
-        "F:/wei/Inceptionv4_and_Inception-ResNetv2.PyTorch/checkpoints/inceptionresnetv2.pth", weights_only=True)
-    # 手动加载权重，跳过输出层
-    model_state_dict = model_2.state_dict()
-    for key in model_state_dict.keys():
-        if key in pretrained_weights and model_state_dict[key].shape == pretrained_weights[key].shape:
-            model_state_dict[key] = pretrained_weights[key]
-    model_2.load_state_dict(model_state_dict)
-    setModel(args, model_2)
+    model_ema_2 = None
+    # args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
+    # model_2 = Inception_ResNetv2(classes=5)  # 修改输出层类别数为 5
+    # # 加载预训练权重
+    # pretrained_weights = torch.load(
+    #     "F:/wei/Inceptionv4_and_Inception-ResNetv2.PyTorch/checkpoints/inceptionresnetv2.pth", weights_only=True)
+    # # 手动加载权重，跳过输出层
+    # model_state_dict = model_2.state_dict()
+    # for key in model_state_dict.keys():
+    #     if key in pretrained_weights and model_state_dict[key].shape == pretrained_weights[key].shape:
+    #         model_state_dict[key] = pretrained_weights[key]
+    # model_2.load_state_dict(model_state_dict)
+    # model_ema_2 = setModel(args, model_2)
 
+    # modelList = [model_1, model_2]
     modelList = [model_1, model_2]
 
     main(args, modelList)

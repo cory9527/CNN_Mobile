@@ -65,10 +65,11 @@ def build_dataset(is_train, args):
         nb_classes = args.nb_classes
     elif args.data_set == 'apots':
         if is_train:
-            label_path = f'F:/wei/NN-MOBILENET/dataset/APOTS/stackcrop/train2_false_{args.stack_index}.csv'
-            dataset = Apots(image_dir='F:/wei/NN-MOBILENET/dataset/APOTS/crop/train_images2',label_dir=label_path,transform=transform)
+            # label_path = f'F:/wei/NN-MOBILENET/dataset/APOTS/stackcrop/train2_false_{args.stack_index}.csv'
+            # dataset = Apots(image_dir='F:/wei/NN-MOBILENET/dataset/APOTS/crop/train_images2',label_dir=label_path,transform=transform)
+            dataset = Apots(image_dir='F:/wei/NN-MOBILENET/dataset/APOTS/final_crop/train_images',label_dir='F:/wei/NN-MOBILENET/dataset/APOTS/final_crop/train.csv',transform=transform)
         else:
-            dataset = Apots(image_dir='F:/wei/NN-MOBILENET/dataset/APOTS/crop/test_images2',label_dir='F:/wei/NN-MOBILENET/dataset/APOTS/crop/test2.csv',transform=transform)
+            dataset = Apots(image_dir='F:/wei/NN-MOBILENET/dataset/APOTS/final_crop/test_images',label_dir='F:/wei/NN-MOBILENET/dataset/APOTS/final_crop/test.csv',transform=transform)
         nb_classes = args.nb_classes
         
     elif args.data_set == 'rsna':
