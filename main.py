@@ -189,7 +189,7 @@ def get_args_parser():
     parser.add_argument('--dist_on_itp', type=str2bool, default=False)
     parser.add_argument('--dist_url', default='env://',
                         help='url used to set up distributed training')
-    parser.add_argument('--main_eval', default='f1', type=str,
+    parser.add_argument('--main_eval', default='accuracy_score', type=str,
                         help="The Save the model weight besed on which metric.")
     parser.add_argument('--use_amp', type=str2bool, default=False, 
                         help="Use PyTorch's AMP (Automatic Mixed Precision) or not")

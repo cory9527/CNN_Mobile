@@ -348,8 +348,8 @@ def evaluateMulModels(data_loader, modelList, device, use_amp=False):
     # print(metric_logger.f1)
     # print(metric_logger.loss)
     print(
-        ' Accuracy:{accuracy_score.global_avg:.4f}==============  SPEC:{spec.global_avg:.4f}===========   kappa:{kappa.global_avg:.4f} ============= F1:{f1.global_avg:.4f} ============== Loss:{loss.global_avg:.4f}'
+        ' Accuracy:{accuracy_score.global_avg:.4f}==============  SPEC:{spec.global_avg:.4f}===========   kappa:{kappa.global_avg:.4f} ============= F1:{f1.global_avg:.4f} ============= AUC:{auc.global_avg:.4f} ============== Loss:{loss.global_avg:.4f}'
         .format(accuracy_score=metric_logger.accuracy_score, spec=metric_logger.spec, kappa=metric_logger.kappa,
-                f1=metric_logger.f1, loss=metric_logger.loss))
+                f1=metric_logger.f1, auc=metric_logger.auc, loss=metric_logger.loss))
 
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
