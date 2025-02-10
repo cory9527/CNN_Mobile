@@ -207,6 +207,50 @@ def get_args_parser():
 
     return parser
 
+def accFileRead(args):
+    max_accuracy = 0.0
+    max_accuracy_ema = 0.0
+
+    # 文件路径
+    log_file_path = args.output_dir + "training_log.json"
+    # 检查文件是否存在，如果存在则从文件中读取数据
+    if os.path.exists(log_file_path):
+        with open(log_file_path, "r") as f:
+            log_data = json.load(f)
+            max_accuracy = log_data.get("max_accuracy", 0.0)
+            max_accuracy_ema = log_data.get("max_accuracy_ema", 0.0)
+            start_epoch = log_data.get("epoch", 0)
+        print(
+            f"Loaded from log file: max_accuracy={max_accuracy}, max_accuracy_ema={max_accuracy_ema}, start_epoch={start_epoch}")
+    return max_accuracy, max_accuracy_ema
+
+
+def accFileWrite(args, max_accuracy, max_accuracy_ema, epoch, ema_epoch):
+    # 文件路径
+    log_file_path = os.path.join(args.output_dir, "training_log.json")
+
+    # 如果文件不存在，初始化一个空的字典
+    if not os.path.exists(log_file_path):
+        log_data = {}
+    else:
+        # 如果文件存在，先读取先前的值
+        with open(log_file_path, "r") as f:
+            log_data = json.load(f)
+
+    # 更新数据
+    if max_accuracy is not None:
+        log_data["max_accuracy"] = max_accuracy
+        log_data["epoch"] = epoch
+    if max_accuracy_ema is not None:
+        log_data["max_accuracy_ema"] = max_accuracy_ema
+        log_data["ema_epoch"] = ema_epoch
+
+    # 写入文件
+    with open(log_file_path, "w") as f:
+        json.dump(log_data, f, indent=4)
+    print(f"Log data saved to {log_file_path}")
+
+
 
 
 def main(args):
@@ -379,9 +423,9 @@ def main(args):
         print(f"kappa of the network on {len(dataset_val)} test images: {test_stats['kappa']:.5f}%")
         return
 
-    max_accuracy = 0.0
+    max_accuracy, temp_max_accuracy_ema = accFileRead(args)
     if args.model_ema and args.model_ema_eval:
-        max_accuracy_ema = 0.0
+        max_accuracy_ema = temp_max_accuracy_ema
 
 
     # 开始训练
@@ -422,6 +466,7 @@ def main(args):
                         utils.save_model(
                             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                             loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+                        accFileWrite(args, max_accuracy, None, epoch, None)
                 print(f'Max f1: {max_accuracy:.2f}%')
 
             elif args.main_eval == 'auc':
@@ -431,6 +476,7 @@ def main(args):
                         utils.save_model(
                             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                             loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+                        accFileWrite(args, max_accuracy, None, epoch, None)
                 print(f'Max auc: {max_accuracy:.2f}%')
             
             elif args.main_eval == 'kappa':
@@ -440,6 +486,7 @@ def main(args):
                         utils.save_model(
                             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                             loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+                        accFileWrite(args, max_accuracy, None, epoch, None)
                 print(f'Max kappa: {max_accuracy:.4f}%')
                 
             elif args.main_eval == 'average':
@@ -452,6 +499,7 @@ def main(args):
                         utils.save_model(
                             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                             loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+                        accFileWrite(args, max_accuracy, None, epoch, None)
                 print(f'Max average: {max_accuracy:.4f}%')
                 
                 
@@ -462,6 +510,7 @@ def main(args):
                         utils.save_model(
                             args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                             loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
+                        accFileWrite(args, max_accuracy, None, epoch, None)
                 print(f'Max accuracy: {max_accuracy:.4f}%')
 
 
@@ -489,6 +538,7 @@ def main(args):
                             utils.save_model(
                                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                                 loss_scaler=loss_scaler, epoch="best-ema", model_ema=model_ema)
+                            accFileWrite(args, None, max_accuracy_ema, None, epoch)
                         print(f'Max f1 : {max_accuracy_ema:.4f}%')
                 # if log_writer is not None:
                 #     log_writer.update(test_acc1_ema=test_stats_ema['accuracy_score'], head="perf", step=epoch)
@@ -501,6 +551,7 @@ def main(args):
                             utils.save_model(
                                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                                 loss_scaler=loss_scaler, epoch="best-ema", model_ema=model_ema)
+                            accFileWrite(args, None, max_accuracy_ema, None, epoch)
                         print(f'Max auc : {max_accuracy_ema:.4f}%')
                     log_stats.update({**{f'test_{k}_ema': v for k, v in test_stats_ema.items()}})
 
@@ -511,6 +562,7 @@ def main(args):
                             utils.save_model(
                                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                                 loss_scaler=loss_scaler, epoch="best-ema", model_ema=model_ema)
+                            accFileWrite(args, None, max_accuracy_ema, None, epoch)
                         print(f'Max kappa : {max_accuracy_ema:.4f}%')
                     log_stats.update({**{f'test_{k}_ema': v for k, v in test_stats_ema.items()}})
 
@@ -522,6 +574,7 @@ def main(args):
                             utils.save_model(
                                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                                 loss_scaler=loss_scaler, epoch="best-ema", model_ema=model_ema)
+                            accFileWrite(args, None, max_accuracy_ema, None, epoch)
                         print(f'Max average : {max_accuracy_ema:.4f}%')
                     log_stats.update({**{f'test_{k}_ema': v for k, v in test_stats_ema.items()}})
 
@@ -532,6 +585,7 @@ def main(args):
                             utils.save_model(
                                 args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                                 loss_scaler=loss_scaler, epoch="best-ema", model_ema=model_ema)
+                            accFileWrite(args, None, max_accuracy_ema, None, epoch)
                         print(f'Max accuracy : {max_accuracy_ema:.4f}%')
                     log_stats.update({**{f'test_{k}_ema': v for k, v in test_stats_ema.items()}})
 
@@ -566,7 +620,7 @@ def debug(args):
     args.epochs=20
     args.disable_eval=False
     args.opt="adamp"
-    args.eval=True
+    args.eval=False
     args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
 
 
