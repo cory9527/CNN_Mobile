@@ -621,11 +621,14 @@ def debug(args):
     args.drop_path=0.2
     args.data_set="apots"
     args.device="cpu"
+    args.device="cpu"
     args.epochs=20
     args.disable_eval=False
     args.opt="adamp"
     args.eval=False
     args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
+    args.reprob = 0.0
+    args.mixup_prob =0.0
 
 
 if __name__ == '__main__':
