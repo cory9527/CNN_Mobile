@@ -19,6 +19,7 @@ from timm.utils import ModelEma
 
 from inceptionModel.inception_resnet_v2 import Inception_ResNetv2
 from model.resnet_kim import ReXNetCBAM
+from model.resnextmsa import ReXNetMSA
 from model.rexnetv3 import ReXNetV3
 from optim_factory import create_optimizer, LayerDecayValueAssigner
 
@@ -328,7 +329,7 @@ def main(args):
             prob=args.mixup_prob, switch_prob=args.mixup_switch_prob, mode=args.mixup_mode,
             label_smoothing=args.smoothing, num_classes=args.nb_classes)
 
-    model = ReXNetCBAM(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
+    model = ReXNetMSA(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
     # model.load_state_dict(torch.load('F:/wei/NN-MOBILENET/rexnet_3.0.pth'),strict=False)
 
     # model = ReXNetV2(width_mult=3.0, classes=args.nb_classes, drop_path=args.drop_path)
@@ -626,7 +627,7 @@ def debug(args):
     args.disable_eval=False
     args.opt="adamp"
     args.eval=False
-    args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
+    # args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
     args.reprob = 0.0
     args.mixup_prob =0.0
 
@@ -636,5 +637,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    # debug(args)
+    debug(args)
     main(args)
