@@ -214,7 +214,7 @@ def accFileRead(args):
     max_accuracy_ema = 0.0
 
     # 文件路径
-    log_file_path = args.output_dir + "training_log.json"
+    log_file_path = os.path.join(args.output_dir, "training_log.json")
     # 检查文件是否存在，如果存在则从文件中读取数据
     if os.path.exists(log_file_path):
         with open(log_file_path, "r") as f:
@@ -627,6 +627,7 @@ def debug(args):
     args.disable_eval=False
     args.opt="adamp"
     args.eval=False
+    args.output_dir="./Experiment/3"
     # args.resume = 'F:/wei/CNN_Mobile/checkpoint/inception/checkpoint-best.pth'
     args.reprob = 0.0
     args.mixup_prob =0.0
